@@ -7,15 +7,18 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ArrowLeft, Wrench } from "lucide-react";
+import { Separator } from "@/components/ui/separator";
+import { ArrowLeft, Wrench, Plus } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
+import { AddCustomComponentDialog } from "@/components/AddCustomComponentDialog";
+import { AddCustomMaintenanceDialog } from "@/components/AddCustomMaintenanceDialog";
 
 interface Vehicle {
   id: string;
   brand: string;
   model: string;
   current_km: number;
-  type: string;
+  type: 'car' | 'motorcycle';
 }
 
 interface Component {
@@ -23,6 +26,7 @@ interface Component {
   component_catalog_id: string;
   alias?: string;
   component_catalog: {
+    id: string;
     name: string;
   };
 }
@@ -38,8 +42,13 @@ const AddMaintenancePage = () => {
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
   const [components, setComponents] = useState<Component[]>([]);
   const [maintenanceTypes, setMaintenanceTypes] = useState<MaintenanceType[]>([]);
+  const [unmappedMaintenanceTypes, setUnmappedMaintenanceTypes] = useState<MaintenanceType[]>([]);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+  
+  // Dialog states
+  const [showComponentDialog, setShowComponentDialog] = useState(false);
+  const [showMaintenanceDialog, setShowMaintenanceDialog] = useState(false);
 
   // Form state
   const [selectedVehicleId, setSelectedVehicleId] = useState<string>("");
@@ -104,13 +113,26 @@ const AddMaintenancePage = () => {
     if (!selectedVehicleId) return;
 
     try {
+      // Get current vehicle to determine type
+      const vehicle = vehicles.find(v => v.id === selectedVehicleId);
+      if (!vehicle) return;
+
       const { data, error } = await supabase
         .from('vehicle_components')
         .select(`
           *,
-          component_catalog (name)
+          component_catalog!inner (
+            id,
+            name,
+            owner_scope,
+            owner_user_id,
+            vehicle_type,
+            is_active
+          )
         `)
-        .eq('vehicle_id', selectedVehicleId);
+        .eq('vehicle_id', selectedVehicleId)
+        .eq('component_catalog.vehicle_type', vehicle.type as 'car' | 'motorcycle')
+        .eq('component_catalog.is_active', true);
 
       if (error) throw error;
       setComponents(data || []);
@@ -122,21 +144,19 @@ const AddMaintenancePage = () => {
   const fetchMaintenanceTypes = async () => {
     if (!selectedComponentId) {
       setMaintenanceTypes([]);
+      setUnmappedMaintenanceTypes([]);
       return;
     }
 
     try {
       // Get the component_catalog_id for the selected vehicle component
-      const { data: componentData, error: componentError } = await supabase
-        .from('vehicle_components')
-        .select('component_catalog_id')
-        .eq('id', selectedComponentId)
-        .single();
+      const componentData = components.find(c => c.id === selectedComponentId);
+      if (!componentData) return;
 
-      if (componentError) throw componentError;
+      const componentCatalogId = componentData.component_catalog_id;
 
-      // Get maintenance types that are associated with this component
-      const { data, error } = await supabase
+      // Get maintenance types that are mapped to this component
+      const { data: mappedTypes, error: mappedError } = await supabase
         .from('maintenance_type_catalog')
         .select(`
           *,
@@ -144,14 +164,26 @@ const AddMaintenancePage = () => {
             component_catalog_id
           )
         `)
-        .eq('maintenance_type_components.component_catalog_id', componentData.component_catalog_id)
+        .eq('maintenance_type_components.component_catalog_id', componentCatalogId)
         .order('name');
 
-      if (error) throw error;
-      setMaintenanceTypes(data || []);
+      if (mappedError) throw mappedError;
+
+      // Get maintenance types that are NOT mapped to this component
+      const { data: unmappedTypes, error: unmappedError } = await supabase
+        .from('maintenance_type_catalog')
+        .select('*')
+        .not('id', 'in', `(${mappedTypes?.map(mt => `'${mt.id}'`).join(',') || "''"})`)
+        .order('name');
+
+      if (unmappedError) throw unmappedError;
+
+      setMaintenanceTypes(mappedTypes || []);
+      setUnmappedMaintenanceTypes(unmappedTypes || []);
     } catch (error) {
       console.error('Error fetching maintenance types:', error);
       setMaintenanceTypes([]);
+      setUnmappedMaintenanceTypes([]);
     }
   };
 
@@ -204,6 +236,34 @@ const AddMaintenancePage = () => {
     } finally {
       setSubmitting(false);
     }
+  };
+
+  const handleComponentCreated = async (componentCatalogId: string) => {
+    // Refresh components list
+    await fetchComponents();
+    
+    // Find the newly created component and select it
+    setTimeout(() => {
+      const newComponent = components.find(c => c.component_catalog_id === componentCatalogId);
+      if (newComponent) {
+        setSelectedComponentId(newComponent.id);
+      }
+    }, 100);
+  };
+
+  const handleMaintenanceTypeCreated = (maintenanceTypeId: string) => {
+    // Refresh maintenance types
+    fetchMaintenanceTypes();
+    setSelectedMaintenanceTypeId(maintenanceTypeId);
+  };
+
+  const getSelectedComponentCatalogId = () => {
+    const component = components.find(c => c.id === selectedComponentId);
+    return component?.component_catalog_id || null;
+  };
+
+  const getCurrentVehicle = () => {
+    return vehicles.find(v => v.id === selectedVehicleId);
   };
 
   if (loading) {
@@ -267,7 +327,13 @@ const AddMaintenancePage = () => {
               <Label htmlFor="component">Komponente *</Label>
               <Select 
                 value={selectedComponentId} 
-                onValueChange={setSelectedComponentId}
+                onValueChange={(value) => {
+                  if (value === '__add_custom__') {
+                    setShowComponentDialog(true);
+                  } else {
+                    setSelectedComponentId(value);
+                  }
+                }}
                 disabled={!selectedVehicleId}
               >
                 <SelectTrigger>
@@ -279,6 +345,13 @@ const AddMaintenancePage = () => {
                       {component.alias || component.component_catalog.name}
                     </SelectItem>
                   ))}
+                  {components.length > 0 && <Separator />}
+                  <SelectItem value="__add_custom__" className="text-primary">
+                    <div className="flex items-center gap-2">
+                      <Plus className="w-4 h-4" />
+                      Benutzerdefinierte Komponente hinzufügen...
+                    </div>
+                  </SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -288,7 +361,13 @@ const AddMaintenancePage = () => {
               <Label htmlFor="maintenanceType">Wartungstyp (optional)</Label>
               <Select 
                 value={selectedMaintenanceTypeId} 
-                onValueChange={setSelectedMaintenanceTypeId}
+                onValueChange={(value) => {
+                  if (value === '__add_custom__') {
+                    setShowMaintenanceDialog(true);
+                  } else {
+                    setSelectedMaintenanceTypeId(value);
+                  }
+                }}
               >
                 <SelectTrigger>
                   <SelectValue placeholder="Wartungstyp auswählen" />
@@ -299,6 +378,26 @@ const AddMaintenancePage = () => {
                       {type.name}
                     </SelectItem>
                   ))}
+                  {unmappedMaintenanceTypes.length > 0 && (
+                    <>
+                      <Separator />
+                      <div className="px-2 py-1 text-xs text-muted-foreground font-medium">
+                        Weitere (nicht zugeordnet)
+                      </div>
+                      {unmappedMaintenanceTypes.map((type) => (
+                        <SelectItem key={type.id} value={type.id}>
+                          {type.name}
+                        </SelectItem>
+                      ))}
+                    </>
+                  )}
+                  <Separator />
+                  <SelectItem value="__add_custom__" className="text-primary">
+                    <div className="flex items-center gap-2">
+                      <Plus className="w-4 h-4" />
+                      Benutzerdefinierten Wartungstyp hinzufügen...
+                    </div>
+                  </SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -396,6 +495,23 @@ const AddMaintenancePage = () => {
           </form>
         </CardContent>
       </Card>
+
+      {/* Custom Component Dialog */}
+      <AddCustomComponentDialog
+        isOpen={showComponentDialog}
+        onClose={() => setShowComponentDialog(false)}
+        vehicleType={getCurrentVehicle()?.type || 'motorcycle'}
+        vehicleId={selectedVehicleId}
+        onComponentCreated={handleComponentCreated}
+      />
+
+      {/* Custom Maintenance Type Dialog */}
+      <AddCustomMaintenanceDialog
+        isOpen={showMaintenanceDialog}
+        onClose={() => setShowMaintenanceDialog(false)}
+        selectedComponentCatalogId={getSelectedComponentCatalogId()}
+        onMaintenanceTypeCreated={handleMaintenanceTypeCreated}
+      />
     </div>
   );
 };
