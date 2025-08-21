@@ -2,41 +2,61 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Definition of the design system. All colors, gradients, fonts, etc should be defined here. 
-All colors MUST be HSL.
-*/
+/* Ride-Log Design System - Apple-inspired minimalist design */
 
 @layer base {
   :root {
-    --background: 0 0% 100%;
-    --foreground: 222.2 84% 4.9%;
-
+    /* Background & Surface Colors */
+    --background: 0 0% 98%;
+    --surface: 0 0% 100%;
+    --surface-secondary: 220 14% 96%;
+    --surface-elevated: 0 0% 100%;
+    
+    /* Text Colors */
+    --foreground: 220 9% 9%;
+    --foreground-secondary: 220 9% 46%;
+    --foreground-tertiary: 220 9% 65%;
+    
+    /* Apple Blue Accent */
+    --primary: 211 100% 50%;
+    --primary-foreground: 0 0% 100%;
+    --primary-light: 211 100% 95%;
+    --primary-dark: 211 100% 40%;
+    
+    /* Status Colors */
+    --success: 142 76% 36%;
+    --success-light: 142 76% 95%;
+    --warning: 45 93% 47%;
+    --warning-light: 45 93% 95%;
+    --danger: 0 84% 60%;
+    --danger-light: 0 84% 95%;
+    
+    /* Interactive Elements */
     --card: 0 0% 100%;
-    --card-foreground: 222.2 84% 4.9%;
-
+    --card-foreground: 220 9% 9%;
+    --border: 220 13% 91%;
+    --border-light: 220 13% 95%;
+    --input: 220 13% 91%;
+    --ring: 211 100% 50%;
+    
+    /* Legacy Shadcn Colors */
     --popover: 0 0% 100%;
-    --popover-foreground: 222.2 84% 4.9%;
+    --popover-foreground: 220 9% 9%;
+    --secondary: 220 14% 96%;
+    --secondary-foreground: 220 9% 9%;
+    --muted: 220 14% 96%;
+    --muted-foreground: 220 9% 46%;
+    --accent: 220 14% 96%;
+    --accent-foreground: 220 9% 9%;
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
 
-    --primary: 222.2 47.4% 11.2%;
-    --primary-foreground: 210 40% 98%;
+    --radius: 12px;
 
-    --secondary: 210 40% 96.1%;
-    --secondary-foreground: 222.2 47.4% 11.2%;
-
-    --muted: 210 40% 96.1%;
-    --muted-foreground: 215.4 16.3% 46.9%;
-
-    --accent: 210 40% 96.1%;
-    --accent-foreground: 222.2 47.4% 11.2%;
-
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 210 40% 98%;
-
-    --border: 214.3 31.8% 91.4%;
-    --input: 214.3 31.8% 91.4%;
-    --ring: 222.2 84% 4.9%;
-
-    --radius: 0.5rem;
+    /* Shadows & Effects */
+    --shadow-card: 0 1px 3px 0 hsl(220 9% 9% / 0.1), 0 1px 2px 0 hsl(220 9% 9% / 0.06);
+    --shadow-elevated: 0 4px 6px -1px hsl(220 9% 9% / 0.1), 0 2px 4px -1px hsl(220 9% 9% / 0.06);
+    --shadow-overlay: 0 10px 15px -3px hsl(220 9% 9% / 0.1), 0 4px 6px -2px hsl(220 9% 9% / 0.05);
 
     --sidebar-background: 0 0% 98%;
 
@@ -100,6 +120,46 @@ All colors MUST be HSL.
   }
 
   body {
-    @apply bg-background text-foreground;
+    @apply bg-background text-foreground font-sans antialiased;
+  }
+}
+
+@layer components {
+  /* Apple-inspired Cards */
+  .card-apple {
+    @apply bg-surface border border-border rounded-xl shadow-sm;
+  }
+  
+  .card-elevated {
+    @apply bg-surface-elevated border-0 rounded-xl;
+    box-shadow: var(--shadow-elevated);
+  }
+
+  /* Status Badges */
+  .status-success {
+    @apply bg-success-light text-success border border-success/20 rounded-full px-3 py-1 text-sm font-medium;
+  }
+  
+  .status-warning {
+    @apply bg-warning-light text-warning border border-warning/20 rounded-full px-3 py-1 text-sm font-medium;
+  }
+  
+  .status-danger {
+    @apply bg-danger-light text-danger border border-danger/20 rounded-full px-3 py-1 text-sm font-medium;
+  }
+
+  /* Progress Ring Animation */
+  .progress-ring {
+    transform-origin: center;
+    transition: stroke-dasharray 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  /* Smooth Interactions */
+  .interactive {
+    @apply transition-all duration-200 ease-in-out hover:scale-[1.02] active:scale-[0.98];
+  }
+  
+  .glass-effect {
+    @apply backdrop-blur-sm bg-surface/80 border border-border-light;
   }
 }
