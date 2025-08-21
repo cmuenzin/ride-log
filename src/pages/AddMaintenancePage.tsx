@@ -133,6 +133,7 @@ const AddMaintenancePage = () => {
         return;
       }
 
+      // Query vehicle components with proper RLS handling
       const { data, error } = await supabase
         .from('vehicle_components')
         .select(`
@@ -151,11 +152,17 @@ const AddMaintenancePage = () => {
         `)
         .eq('vehicle_id', selectedVehicleId)
         .eq('component_catalog.vehicle_type', vehicle.type)
-        .eq('component_catalog.is_active', true)
-        .or(`component_catalog.owner_scope.eq.global,component_catalog.owner_user_id.eq.${user.id}`, { foreignTable: 'component_catalog' });
+        .eq('component_catalog.is_active', true);
 
       if (error) throw error;
-      setComponents(data || []);
+
+      // Filter client-side for RLS (global OR user-owned)
+      const filteredData = (data || []).filter(component => {
+        const catalog = component.component_catalog;
+        return catalog.owner_scope === 'global' || catalog.owner_user_id === user.id;
+      });
+
+      setComponents(filteredData);
     } catch (error) {
       console.error('Error fetching components:', error);
       toast({
