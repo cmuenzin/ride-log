@@ -133,7 +133,45 @@ const AddMaintenancePage = () => {
         return;
       }
 
-      // Query vehicle components with proper RLS handling
+      // First, get all available components from catalog that match vehicle type
+      const { data: catalogComponents, error: catalogError } = await supabase
+        .from('component_catalog')
+        .select('*')
+        .eq('vehicle_type', vehicle.type)
+        .eq('is_active', true);
+
+      if (catalogError) throw catalogError;
+
+      // Filter for global or user-owned components
+      const availableComponents = (catalogComponents || []).filter(component => 
+        component.owner_scope === 'global' || component.owner_user_id === user.id
+      );
+
+      // Get existing vehicle_components
+      const { data: existingVehicleComponents } = await supabase
+        .from('vehicle_components')
+        .select('component_catalog_id')
+        .eq('vehicle_id', selectedVehicleId);
+
+      const existingCatalogIds = new Set((existingVehicleComponents || []).map(vc => vc.component_catalog_id));
+
+      // Create missing vehicle_components automatically
+      const missingComponents = availableComponents.filter(component => 
+        !existingCatalogIds.has(component.id)
+      );
+
+      if (missingComponents.length > 0) {
+        const newVehicleComponents = missingComponents.map(component => ({
+          vehicle_id: selectedVehicleId,
+          component_catalog_id: component.id
+        }));
+
+        await supabase
+          .from('vehicle_components')
+          .insert(newVehicleComponents);
+      }
+
+      // Now get all vehicle_components with their catalog info
       const { data, error } = await supabase
         .from('vehicle_components')
         .select(`

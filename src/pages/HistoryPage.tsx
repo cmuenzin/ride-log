@@ -3,7 +3,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { History, Filter, Calendar, Wrench } from "lucide-react";
+import { History, Filter, Calendar, Wrench, Edit } from "lucide-react";
+import { EditMaintenanceDialog } from "@/components/EditMaintenanceDialog";
 
 interface Vehicle {
   id: string;
@@ -15,9 +16,15 @@ interface Vehicle {
 
 interface MaintenanceEvent {
   id: string;
+  vehicle_id: string;
+  vehicle_component_id: string;
+  maintenance_type_id?: string;
   performed_at: string;
   km_at_service: number;
   custom_name?: string;
+  note?: string;
+  interval_km?: number;
+  interval_time_months?: number;
   maintenance_type_catalog?: {
     name: string;
   };
@@ -37,6 +44,10 @@ const HistoryPage = () => {
   const [selectedVehicleId, setSelectedVehicleId] = useState<string>("");
   const [maintenanceEvents, setMaintenanceEvents] = useState<MaintenanceEvent[]>([]);
   const [loading, setLoading] = useState(true);
+  
+  // Dialog state
+  const [showEditDialog, setShowEditDialog] = useState(false);
+  const [editingEvent, setEditingEvent] = useState<MaintenanceEvent | null>(null);
 
   useEffect(() => {
     fetchVehicles();
@@ -90,6 +101,15 @@ const HistoryPage = () => {
     } catch (error) {
       console.error('Error fetching maintenance history:', error);
     }
+  };
+
+  const handleEditMaintenance = (event: MaintenanceEvent) => {
+    setEditingEvent(event);
+    setShowEditDialog(true);
+  };
+
+  const handleMaintenanceUpdated = () => {
+    fetchMaintenanceHistory();
   };
 
   const formatDate = (dateString: string) => {
@@ -166,7 +186,7 @@ const HistoryPage = () => {
               {maintenanceEvents.map((event) => (
                 <div 
                   key={event.id}
-                  className="flex items-center justify-between p-4 bg-surface-secondary rounded-lg interactive cursor-pointer hover:bg-surface-secondary/80"
+                  className="flex items-center justify-between p-4 bg-surface-secondary rounded-lg"
                 >
                   <div className="flex-1">
                     <div className="flex items-center gap-3 mb-2">
@@ -185,16 +205,26 @@ const HistoryPage = () => {
                       {event.vehicle_components?.component_catalog?.name}
                     </p>
                   </div>
-                  <div className="text-right">
-                    <div className="flex items-center gap-3 text-sm">
-                      <div className="flex items-center gap-1 text-foreground-secondary">
-                        <Calendar className="w-4 h-4" />
-                        {formatDate(event.performed_at)}
-                      </div>
-                      <div className="font-medium text-foreground">
-                        {event.km_at_service.toLocaleString()} km
+                  <div className="flex items-center gap-3">
+                    <div className="text-right">
+                      <div className="flex items-center gap-3 text-sm">
+                        <div className="flex items-center gap-1 text-foreground-secondary">
+                          <Calendar className="w-4 h-4" />
+                          {formatDate(event.performed_at)}
+                        </div>
+                        <div className="font-medium text-foreground">
+                          {event.km_at_service.toLocaleString()} km
+                        </div>
                       </div>
                     </div>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => handleEditMaintenance(event)}
+                      className="ml-2"
+                    >
+                      <Edit className="w-4 h-4" />
+                    </Button>
                   </div>
                 </div>
               ))}
@@ -202,6 +232,14 @@ const HistoryPage = () => {
           )}
         </CardContent>
       </Card>
+
+      {/* Edit Maintenance Dialog */}
+      <EditMaintenanceDialog
+        isOpen={showEditDialog}
+        onClose={() => setShowEditDialog(false)}
+        maintenanceEvent={editingEvent}
+        onMaintenanceUpdated={handleMaintenanceUpdated}
+      />
     </div>
   );
 };
