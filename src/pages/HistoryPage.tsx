@@ -2,7 +2,16 @@ import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { History, Filter, Calendar, Wrench } from "lucide-react";
+
+interface Vehicle {
+  id: string;
+  brand: string;
+  model: string;
+  current_km: number;
+  type: string;
+}
 
 interface MaintenanceEvent {
   id: string;
@@ -24,14 +33,44 @@ interface MaintenanceEvent {
 }
 
 const HistoryPage = () => {
+  const [vehicles, setVehicles] = useState<Vehicle[]>([]);
+  const [selectedVehicleId, setSelectedVehicleId] = useState<string>("");
   const [maintenanceEvents, setMaintenanceEvents] = useState<MaintenanceEvent[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetchMaintenanceHistory();
+    fetchVehicles();
   }, []);
 
+  useEffect(() => {
+    if (selectedVehicleId) {
+      fetchMaintenanceHistory();
+    }
+  }, [selectedVehicleId]);
+
+  const fetchVehicles = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('vehicles')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      
+      if (data && data.length > 0) {
+        setVehicles(data);
+        setSelectedVehicleId(data[0].id); // Select first vehicle by default
+      }
+    } catch (error) {
+      console.error('Error fetching vehicles:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const fetchMaintenanceHistory = async () => {
+    if (!selectedVehicleId) return;
+    
     try {
       const { data, error } = await supabase
         .from('maintenance_events')
@@ -43,14 +82,13 @@ const HistoryPage = () => {
           ),
           vehicles (brand, model)
         `)
+        .eq('vehicle_id', selectedVehicleId)
         .order('performed_at', { ascending: false });
 
       if (error) throw error;
       setMaintenanceEvents(data || []);
     } catch (error) {
       console.error('Error fetching maintenance history:', error);
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -83,10 +121,25 @@ const HistoryPage = () => {
           </p>
         </div>
         
-        <Button variant="outline" className="gap-2">
-          <Filter className="w-4 h-4" />
-          Filter
-        </Button>
+        <div className="flex items-center gap-3">
+          <Select value={selectedVehicleId} onValueChange={setSelectedVehicleId}>
+            <SelectTrigger className="w-64">
+              <SelectValue placeholder="Fahrzeug auswählen" />
+            </SelectTrigger>
+            <SelectContent>
+              {vehicles.map((vehicle) => (
+                <SelectItem key={vehicle.id} value={vehicle.id}>
+                  {vehicle.brand} {vehicle.model}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          
+          <Button variant="outline" className="gap-2">
+            <Filter className="w-4 h-4" />
+            Filter
+          </Button>
+        </div>
       </div>
 
       {/* Wartungsliste */}

@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Plus, Car, AlertTriangle, CheckCircle, Clock } from "lucide-react";
+import { Plus, Car, Bike, AlertTriangle, CheckCircle, Clock } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
 interface Vehicle {
@@ -94,6 +94,12 @@ const Dashboard = () => {
     return <CheckCircle className="w-5 h-5 text-success" />;
   };
 
+  const getVehicleIcon = (vehicleType: string) => {
+    return vehicleType === 'motorcycle' ? 
+      <Bike className="w-16 h-16 text-foreground-tertiary" /> : 
+      <Car className="w-16 h-16 text-foreground-tertiary" />;
+  };
+
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString('de-DE', {
       day: '2-digit',
@@ -114,7 +120,7 @@ const Dashboard = () => {
     return (
       <div className="max-w-4xl mx-auto p-6 space-y-6">
         <div className="text-center py-12">
-          <Car className="w-16 h-16 text-foreground-tertiary mx-auto mb-4" />
+          <div className="mx-auto mb-4">{getVehicleIcon('car')}</div>
           <h2 className="text-xl font-semibold text-foreground mb-2">
             Willkommen bei Ride-Log
           </h2>

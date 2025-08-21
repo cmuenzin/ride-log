@@ -1,6 +1,6 @@
 import { ReactNode } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import { Home, Car, History, Calendar, Settings, Plus } from "lucide-react";
+import { Home, Warehouse, History, Calendar, Settings } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 interface LayoutProps {
@@ -25,7 +25,7 @@ const Layout = ({ children }: LayoutProps) => {
       active: isActive("/") && location.pathname === "/"
     },
     {
-      icon: Car,
+      icon: Warehouse,
       label: "Garage",
       path: "/garage",
       active: isActive("/garage")
@@ -82,14 +82,8 @@ const Layout = ({ children }: LayoutProps) => {
             })}
           </nav>
 
-          {/* Quick Action Button */}
-          <Button 
-            onClick={() => navigate('/maintenance/add')}
-            className="bg-primary hover:bg-primary-dark text-primary-foreground gap-2"
-          >
-            <Plus className="w-4 h-4" />
-            <span className="hidden sm:inline">Wartung</span>
-          </Button>
+          {/* Empty space where button was */}
+          <div></div>
         </div>
       </header>
 
