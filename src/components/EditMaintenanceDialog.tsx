@@ -236,7 +236,6 @@ export const EditMaintenanceDialog = ({
                 <SelectValue placeholder="Wartungstyp auswählen" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">Kein Typ ausgewählt</SelectItem>
                 {maintenanceTypes.map((type) => (
                   <SelectItem key={type.id} value={type.id}>
                     {type.name}

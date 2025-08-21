@@ -418,7 +418,7 @@ const AddMaintenancePage = () => {
                 <SelectContent>
                   {vehicles.map((vehicle) => (
                     <SelectItem key={vehicle.id} value={vehicle.id}>
-                      {vehicle.brand} {vehicle.model} ({vehicle.current_km.toLocaleString()} km)
+                      {vehicle.brand} {vehicle.model}
                     </SelectItem>
                   ))}
                 </SelectContent>

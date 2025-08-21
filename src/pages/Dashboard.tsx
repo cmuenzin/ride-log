@@ -151,7 +151,7 @@ const Dashboard = () => {
           >
             {vehicles.map((vehicle) => (
               <option key={vehicle.id} value={vehicle.id}>
-                {vehicle.brand} {vehicle.model} ({vehicle.current_km.toLocaleString()} km)
+                {vehicle.brand} {vehicle.model}
               </option>
             ))}
           </select>
