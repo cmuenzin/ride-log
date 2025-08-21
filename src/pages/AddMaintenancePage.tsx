@@ -28,6 +28,7 @@ interface Component {
   component_catalog: {
     id: string;
     name: string;
+    icon_id?: string;
   };
 }
 
@@ -79,8 +80,12 @@ const AddMaintenancePage = () => {
   useEffect(() => {
     if (selectedComponentId) {
       fetchMaintenanceTypes();
+    } else {
+      setMaintenanceTypes([]);
+      setUnmappedMaintenanceTypes([]);
+      setSelectedMaintenanceTypeId("");
     }
-  }, [selectedComponentId]);
+  }, [selectedComponentId, components]);
 
   const fetchInitialData = async () => {
     try {
@@ -117,13 +122,27 @@ const AddMaintenancePage = () => {
       const vehicle = vehicles.find(v => v.id === selectedVehicleId);
       if (!vehicle) return;
 
+      // Get current user for RLS filtering
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        toast({
+          title: "Fehler",
+          description: "Benutzer nicht authentifiziert.",
+          variant: "destructive",
+        });
+        return;
+      }
+
       const { data, error } = await supabase
         .from('vehicle_components')
         .select(`
-          *,
+          id,
+          component_catalog_id,
+          alias,
           component_catalog!inner (
             id,
             name,
+            icon_id,
             owner_scope,
             owner_user_id,
             vehicle_type,
@@ -131,13 +150,19 @@ const AddMaintenancePage = () => {
           )
         `)
         .eq('vehicle_id', selectedVehicleId)
-        .eq('component_catalog.vehicle_type', vehicle.type as 'car' | 'motorcycle')
-        .eq('component_catalog.is_active', true);
+        .eq('component_catalog.vehicle_type', vehicle.type)
+        .eq('component_catalog.is_active', true)
+        .or(`component_catalog.owner_scope.eq.global,component_catalog.owner_user_id.eq.${user.id}`, { foreignTable: 'component_catalog' });
 
       if (error) throw error;
       setComponents(data || []);
     } catch (error) {
       console.error('Error fetching components:', error);
+      toast({
+        title: "Fehler",
+        description: "Komponenten konnten nicht geladen werden.",
+        variant: "destructive",
+      });
     }
   };
 
@@ -151,37 +176,67 @@ const AddMaintenancePage = () => {
     try {
       // Get the component_catalog_id for the selected vehicle component
       const componentData = components.find(c => c.id === selectedComponentId);
-      if (!componentData) return;
+      if (!componentData) {
+        setMaintenanceTypes([]);
+        setUnmappedMaintenanceTypes([]);
+        return;
+      }
 
       const componentCatalogId = componentData.component_catalog_id;
+
+      // Get current user for RLS filtering
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        toast({
+          title: "Fehler",
+          description: "Benutzer nicht authentifiziert.",
+          variant: "destructive",
+        });
+        return;
+      }
 
       // Get maintenance types that are mapped to this component
       const { data: mappedTypes, error: mappedError } = await supabase
         .from('maintenance_type_catalog')
         .select(`
-          *,
+          id,
+          name,
+          description,
+          owner_scope,
+          owner_user_id,
           maintenance_type_components!inner (
             component_catalog_id
           )
         `)
         .eq('maintenance_type_components.component_catalog_id', componentCatalogId)
+        .or(`owner_scope.eq.global,owner_user_id.eq.${user.id}`)
         .order('name');
 
       if (mappedError) throw mappedError;
 
-      // Get maintenance types that are NOT mapped to this component
-      const { data: unmappedTypes, error: unmappedError } = await supabase
+      // Get maintenance types that are NOT mapped to this component (but still respect RLS)
+      const mappedTypeIds = (mappedTypes || []).map(mt => mt.id);
+      
+      const { data: allTypes, error: allTypesError } = await supabase
         .from('maintenance_type_catalog')
-        .select('*')
-        .not('id', 'in', `(${mappedTypes?.map(mt => `'${mt.id}'`).join(',') || "''"})`)
+        .select('id, name, description, owner_scope, owner_user_id')
+        .or(`owner_scope.eq.global,owner_user_id.eq.${user.id}`)
         .order('name');
 
-      if (unmappedError) throw unmappedError;
+      if (allTypesError) throw allTypesError;
+
+      // Filter out mapped types to get unmapped ones
+      const unmappedTypes = (allTypes || []).filter(type => !mappedTypeIds.includes(type.id));
 
       setMaintenanceTypes(mappedTypes || []);
       setUnmappedMaintenanceTypes(unmappedTypes || []);
     } catch (error) {
       console.error('Error fetching maintenance types:', error);
+      toast({
+        title: "Fehler", 
+        description: "Wartungstypen konnten nicht geladen werden.",
+        variant: "destructive",
+      });
       setMaintenanceTypes([]);
       setUnmappedMaintenanceTypes([]);
     }
@@ -248,13 +303,16 @@ const AddMaintenancePage = () => {
       if (newComponent) {
         setSelectedComponentId(newComponent.id);
       }
-    }, 100);
+    }, 200);
   };
 
-  const handleMaintenanceTypeCreated = (maintenanceTypeId: string) => {
+  const handleMaintenanceTypeCreated = async (maintenanceTypeId: string) => {
     // Refresh maintenance types
-    fetchMaintenanceTypes();
-    setSelectedMaintenanceTypeId(maintenanceTypeId);
+    await fetchMaintenanceTypes();
+    // Select the newly created maintenance type
+    setTimeout(() => {
+      setSelectedMaintenanceTypeId(maintenanceTypeId);
+    }, 100);
   };
 
   const getSelectedComponentCatalogId = () => {
