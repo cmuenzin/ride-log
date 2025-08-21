@@ -2,7 +2,8 @@ import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Plus, Car, Bike, AlertTriangle, CheckCircle, Clock } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Plus, Car, Bike, AlertTriangle, CheckCircle, Clock, Edit } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
 interface Vehicle {
@@ -34,6 +35,8 @@ const Dashboard = () => {
   const [selectedVehicle, setSelectedVehicle] = useState<Vehicle | null>(null);
   const [recentMaintenances, setRecentMaintenances] = useState<MaintenanceEvent[]>([]);
   const [loading, setLoading] = useState(true);
+  const [editingMileage, setEditingMileage] = useState(false);
+  const [tempMileage, setTempMileage] = useState<string>("");
 
   useEffect(() => {
     fetchVehicles();
@@ -106,6 +109,42 @@ const Dashboard = () => {
       month: '2-digit',
       year: 'numeric'
     });
+  };
+
+  const handleMileageEdit = () => {
+    if (!selectedVehicle) return;
+    setTempMileage(selectedVehicle.current_km.toString());
+    setEditingMileage(true);
+  };
+
+  const handleMileageSave = async () => {
+    if (!selectedVehicle || !tempMileage) return;
+
+    try {
+      const newMileage = parseInt(tempMileage);
+      
+      const { error } = await supabase
+        .from('vehicles')
+        .update({ current_km: newMileage })
+        .eq('id', selectedVehicle.id);
+
+      if (error) throw error;
+
+      // Update local state
+      setSelectedVehicle({ ...selectedVehicle, current_km: newMileage });
+      setVehicles(vehicles.map(v => 
+        v.id === selectedVehicle.id ? { ...v, current_km: newMileage } : v
+      ));
+      
+      setEditingMileage(false);
+    } catch (error) {
+      console.error('Error updating mileage:', error);
+    }
+  };
+
+  const handleMileageCancel = () => {
+    setEditingMileage(false);
+    setTempMileage("");
   };
 
   if (loading) {
@@ -184,9 +223,39 @@ const Dashboard = () => {
             <CardContent>
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
                 <div className="text-center">
-                  <div className="text-2xl font-bold text-foreground mb-1">
-                    {selectedVehicle.current_km.toLocaleString()}
-                  </div>
+                  {editingMileage ? (
+                    <div className="space-y-2">
+                      <Input
+                        type="number"
+                        value={tempMileage}
+                        onChange={(e) => setTempMileage(e.target.value)}
+                        className="text-center text-2xl font-bold w-32 mx-auto"
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') handleMileageSave();
+                          if (e.key === 'Escape') handleMileageCancel();
+                        }}
+                        autoFocus
+                      />
+                      <div className="flex gap-1 justify-center">
+                        <Button size="sm" variant="ghost" onClick={handleMileageSave}>
+                          ✓
+                        </Button>
+                        <Button size="sm" variant="ghost" onClick={handleMileageCancel}>
+                          ✕
+                        </Button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div 
+                      className="cursor-pointer group"
+                      onClick={handleMileageEdit}
+                    >
+                      <div className="text-2xl font-bold text-foreground mb-1 flex items-center justify-center gap-1 group-hover:text-primary transition-colors">
+                        {selectedVehicle.current_km.toLocaleString()}
+                        <Edit className="w-4 h-4 opacity-0 group-hover:opacity-50 transition-opacity" />
+                      </div>
+                    </div>
+                  )}
                   <div className="text-sm text-foreground-secondary">Kilometer</div>
                 </div>
                 <div className="text-center">

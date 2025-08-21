@@ -171,6 +171,18 @@ export const EditMaintenanceDialog = ({
 
       if (error) throw error;
 
+      // Update vehicle mileage if this is higher than current
+      const kmService = parseInt(kmAtService);
+      const { error: vehicleError } = await supabase
+        .from('vehicles')
+        .update({ current_km: kmService })
+        .eq('id', maintenanceEvent.vehicle_id)
+        .lt('current_km', kmService);
+
+      if (vehicleError) {
+        console.warn('Could not update vehicle mileage:', vehicleError);
+      }
+
       toast({
         title: "Erfolg",
         description: "Wartung wurde erfolgreich aktualisiert.",
