@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Plus, Car, Edit, Trash2, Calendar } from "lucide-react";
+import { Plus, Car, Bike, Edit, Trash2, Calendar } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
 
@@ -76,7 +76,9 @@ const Garage = () => {
   };
 
   const getVehicleIcon = (type: string) => {
-    return <Car className="w-6 h-6 text-primary" />;
+    return type === 'motorcycle' ? 
+      <Bike className="w-6 h-6 text-primary" /> : 
+      <Car className="w-6 h-6 text-primary" />;
   };
 
   const formatDate = (dateString: string) => {

@@ -120,16 +120,38 @@ const AddMaintenancePage = () => {
   };
 
   const fetchMaintenanceTypes = async () => {
+    if (!selectedComponentId) {
+      setMaintenanceTypes([]);
+      return;
+    }
+
     try {
+      // Get the component_catalog_id for the selected vehicle component
+      const { data: componentData, error: componentError } = await supabase
+        .from('vehicle_components')
+        .select('component_catalog_id')
+        .eq('id', selectedComponentId)
+        .single();
+
+      if (componentError) throw componentError;
+
+      // Get maintenance types that are associated with this component
       const { data, error } = await supabase
         .from('maintenance_type_catalog')
-        .select('*')
+        .select(`
+          *,
+          maintenance_type_components!inner (
+            component_catalog_id
+          )
+        `)
+        .eq('maintenance_type_components.component_catalog_id', componentData.component_catalog_id)
         .order('name');
 
       if (error) throw error;
       setMaintenanceTypes(data || []);
     } catch (error) {
       console.error('Error fetching maintenance types:', error);
+      setMaintenanceTypes([]);
     }
   };
 
