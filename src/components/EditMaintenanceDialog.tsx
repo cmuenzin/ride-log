@@ -67,7 +67,15 @@ export const EditMaintenanceDialog = ({
 
   useEffect(() => {
     if (isOpen && maintenanceEvent) {
-      // Initialize form with existing data
+      // Load components and maintenance types first
+      fetchComponents();
+      fetchMaintenanceTypes();
+    }
+  }, [isOpen, maintenanceEvent]);
+
+  useEffect(() => {
+    if (isOpen && maintenanceEvent && components.length > 0) {
+      // Initialize form with existing data after components are loaded
       setSelectedComponentId(maintenanceEvent.vehicle_component_id);
       setSelectedMaintenanceTypeId(maintenanceEvent.maintenance_type_id || "");
       setKmAtService(maintenanceEvent.km_at_service.toString());
@@ -76,12 +84,8 @@ export const EditMaintenanceDialog = ({
       setNote(maintenanceEvent.note || "");
       setIntervalKm(maintenanceEvent.interval_km?.toString() || "");
       setIntervalMonths(maintenanceEvent.interval_time_months?.toString() || "");
-
-      // Load components and maintenance types
-      fetchComponents();
-      fetchMaintenanceTypes();
     }
-  }, [isOpen, maintenanceEvent]);
+  }, [isOpen, maintenanceEvent, components]);
 
   const fetchComponents = async () => {
     if (!maintenanceEvent) return;

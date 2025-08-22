@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { History, Filter, Calendar, Wrench, Edit } from "lucide-react";
 import { EditMaintenanceDialog } from "@/components/EditMaintenanceDialog";
+import { Progress } from "@/components/ui/progress";
 
 interface Vehicle {
   id: string;
@@ -120,6 +121,37 @@ const HistoryPage = () => {
     });
   };
 
+  const calculateProgress = (event: MaintenanceEvent, currentVehicle: Vehicle) => {
+    const currentDate = new Date();
+    const eventDate = new Date(event.performed_at);
+    
+    // Calculate mileage-based progress
+    if (event.interval_km) {
+      const kmSinceService = currentVehicle.current_km - event.km_at_service;
+      const progress = Math.min((kmSinceService / event.interval_km) * 100, 100);
+      return {
+        type: 'km',
+        progress: Math.max(0, progress),
+        current: kmSinceService,
+        target: event.interval_km
+      };
+    }
+    
+    // Calculate time-based progress
+    if (event.interval_time_months) {
+      const monthsSinceService = (currentDate.getTime() - eventDate.getTime()) / (1000 * 60 * 60 * 24 * 30.44);
+      const progress = Math.min((monthsSinceService / event.interval_time_months) * 100, 100);
+      return {
+        type: 'time',
+        progress: Math.max(0, progress),
+        current: monthsSinceService,
+        target: event.interval_time_months
+      };
+    }
+    
+    return null;
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
@@ -183,51 +215,70 @@ const HistoryPage = () => {
             </div>
           ) : (
             <div className="space-y-4">
-              {maintenanceEvents.map((event) => (
-                <div 
-                  key={event.id}
-                  className="flex items-center justify-between p-4 bg-surface-secondary rounded-lg"
-                >
-                  <div className="flex-1">
-                    <div className="flex items-center gap-3 mb-2">
-                      <h4 className="font-medium text-foreground">
-                        {event.custom_name || 
-                         event.maintenance_type_catalog?.name || 
-                         'Wartung'}
-                      </h4>
-                      {event.vehicles && (
-                        <span className="text-sm text-foreground-secondary bg-surface px-2 py-1 rounded-full">
-                          {event.vehicles.brand} {event.vehicles.model}
-                        </span>
+              {maintenanceEvents.map((event) => {
+                const currentVehicle = vehicles.find(v => v.id === selectedVehicleId);
+                const progressInfo = currentVehicle ? calculateProgress(event, currentVehicle) : null;
+                
+                return (
+                  <div 
+                    key={event.id}
+                    className="flex items-center justify-between p-4 bg-surface-secondary rounded-lg"
+                  >
+                    <div className="flex-1">
+                      <div className="flex items-center gap-3 mb-2">
+                        <h4 className="font-medium text-foreground">
+                          {event.custom_name || 
+                           event.maintenance_type_catalog?.name || 
+                           'Wartung'}
+                        </h4>
+                        {event.vehicles && (
+                          <span className="text-sm text-foreground-secondary bg-surface px-2 py-1 rounded-full">
+                            {event.vehicles.brand} {event.vehicles.model}
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-sm text-foreground-secondary mb-2">
+                        {event.vehicle_components?.component_catalog?.name}
+                      </p>
+                      {progressInfo && (
+                        <div className="mt-2">
+                          <Progress 
+                            value={progressInfo.progress} 
+                            className="w-full h-2 bg-muted"
+                          />
+                          <p className="text-xs text-foreground-tertiary mt-1">
+                            {progressInfo.type === 'km' 
+                              ? `${Math.round(progressInfo.current)} / ${progressInfo.target} km`
+                              : `${Math.round(progressInfo.current)} / ${progressInfo.target} Monate`
+                            }
+                          </p>
+                        </div>
                       )}
                     </div>
-                    <p className="text-sm text-foreground-secondary">
-                      {event.vehicle_components?.component_catalog?.name}
-                    </p>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <div className="text-right">
-                      <div className="flex items-center gap-3 text-sm">
-                        <div className="flex items-center gap-1 text-foreground-secondary">
-                          <Calendar className="w-4 h-4" />
-                          {formatDate(event.performed_at)}
-                        </div>
-                        <div className="font-medium text-foreground">
-                          {event.km_at_service.toLocaleString()} km
+                    <div className="flex items-center gap-3">
+                      <div className="text-right">
+                        <div className="flex items-center gap-3 text-sm">
+                          <div className="flex items-center gap-1 text-foreground-secondary">
+                            <Calendar className="w-4 h-4" />
+                            {formatDate(event.performed_at)}
+                          </div>
+                          <div className="font-medium text-foreground">
+                            {event.km_at_service.toLocaleString()} km
+                          </div>
                         </div>
                       </div>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleEditMaintenance(event)}
+                        className="ml-2"
+                      >
+                        <Edit className="w-4 h-4" />
+                      </Button>
                     </div>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => handleEditMaintenance(event)}
-                      className="ml-2"
-                    >
-                      <Edit className="w-4 h-4" />
-                    </Button>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </CardContent>
