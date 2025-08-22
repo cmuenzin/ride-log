@@ -219,6 +219,12 @@ const HistoryPage = () => {
                 const currentVehicle = vehicles.find(v => v.id === selectedVehicleId);
                 const progressInfo = currentVehicle ? calculateProgress(event, currentVehicle) : null;
                 
+                console.log('Event:', event.custom_name || event.maintenance_type_catalog?.name, {
+                  interval_km: event.interval_km,
+                  interval_time_months: event.interval_time_months,
+                  progressInfo
+                });
+                
                 return (
                   <div 
                     key={event.id}
